@@ -11,6 +11,7 @@
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#usage">Usage</a> •
+  <a href="#vibe-coding-setup-macos">Vibe Coding Setup</a> •
   <a href="#configuration">Configuration</a> •
   <a href="#how-it-works">How It Works</a>
 </p>
