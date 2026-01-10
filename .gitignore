@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# uv
+.venv/
+uv.lock
+
+# Nix/direnv
+.direnv/
+result
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
