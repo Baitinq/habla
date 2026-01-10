@@ -93,6 +93,51 @@ habla --toggle && sleep 3 && habla --toggle | xclip -selection clipboard
 
 Bind `habla --toggle` to a key combination in your window manager or keyboard settings. Each press starts or stops recording, with the transcription printed when you stop.
 
+### Vibe Coding Setup (macOS)
+
+For a seamless voice-to-text workflow while coding, you can set up habla to start automatically and bind it to a hotkey that pastes transcriptions directly.
+
+#### 1. Auto-start the daemon with launchd
+
+Create `~/Library/LaunchAgents/com.habla.daemon.plist`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.habla.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/YOUR_USERNAME/.local/bin/habla</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/habla.log</string>
+</dict>
+</plist>
+```
+
+Then load it:
+```bash
+launchctl load ~/Library/LaunchAgents/com.habla.daemon.plist
+```
+
+#### 2. Hotkey with skhd
+
+Install [skhd](https://github.com/koekeishiya/skhd) and add to `~/.skhdrc`:
+
+```bash
+# Toggle recording and paste transcription
+alt - space : habla --toggle | pbcopy && osascript -e 'tell application "System Events" to keystroke "v" using command down'
+```
+
+This binds `Alt+Space` to toggle recording. When you stop, the transcription is copied to clipboard and pasted at your cursor.
+
 ## Configuration
 
 | Environment Variable | Default | Description |
