@@ -20,7 +20,7 @@ class Recorder:
         self.stream = None
 
         print(f"Loading model: {MODEL}", file=sys.stderr)
-        self.model = Model(MODEL, language="auto")
+        self.model = Model(MODEL, language="en")
 
         self.samplerate = int(sd.query_devices(kind="input")["default_samplerate"])
         sd.default.samplerate = self.samplerate
