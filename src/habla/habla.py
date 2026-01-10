@@ -45,7 +45,7 @@ class Recorder:
             num_samples = int(len(audio) * WHISPER_SAMPLERATE / self.samplerate)
             audio = scipy.signal.resample(audio, num_samples)
 
-        segments = self.model.transcribe(audio)
+        segments = self.model.transcribe(audio, no_timestamps=True)
         return " ".join(s.text for s in segments).strip()
 
     def _streaming_loop(self):
