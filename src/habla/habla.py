@@ -4,7 +4,6 @@ import os
 import argparse
 import socket
 import threading
-import time
 import numpy as np
 import scipy.signal
 import sounddevice as sd
@@ -13,7 +12,7 @@ from pywhispercpp.model import Model
 WHISPER_SAMPLERATE = 16000
 MODEL = os.getenv("MODEL", "large-v3-turbo-q8_0")
 SOCKET_PATH = os.path.expanduser("~/.habla.sock")
-CHUNK_INTERVAL = 3  # seconds between streaming transcriptions
+CHUNK_INTERVAL = int(os.getenv("CHUNK_INTERVAL", "3"))
 
 
 class Recorder:
@@ -23,6 +22,7 @@ class Recorder:
         self.stream = None
         self.streaming_conn = None
         self.transcribe_thread = None
+        self.stop_event = threading.Event()
 
         print(f"Loading model: {MODEL}", file=sys.stderr)
         self.model = Model(MODEL, language="en")
@@ -53,9 +53,8 @@ class Recorder:
         processed_chunks = 0
 
         while self.recording:
-            time.sleep(CHUNK_INTERVAL)
-            if not self.recording:
-                break
+            if self.stop_event.wait(timeout=CHUNK_INTERVAL):
+                break  # Stop was signaled
 
             current_chunks = len(self.audio_data)
             if current_chunks > processed_chunks:
@@ -89,6 +88,7 @@ class Recorder:
         self.recording = True
         self.audio_data = []
         self.streaming_conn = streaming_conn
+        self.stop_event.clear()
 
         print("Recording...", file=sys.stderr)
         self.stream = sd.InputStream(callback=self._callback)
@@ -102,6 +102,7 @@ class Recorder:
         if not self.recording:
             return
         self.recording = False
+        self.stop_event.set()  # Wake up streaming thread immediately
 
         if self.stream:
             self.stream.stop()
