@@ -28,7 +28,7 @@
 ## Features
 
 - **Daemon Architecture** — Runs in the background, controlled via simple commands
-- **Real-time Transcription** — Record and transcribe speech on demand
+- **Streaming Transcription** — Text streams to stdout as you speak
 - **Whisper-powered** — Uses state-of-the-art speech recognition
 - **Unix-friendly** — Outputs to stdout for easy piping and scripting
 - **Toggle Support** — Perfect for binding to a hotkey
@@ -74,25 +74,29 @@ The daemon loads the Whisper model and listens for commands on `~/.habla.sock`.
 From another terminal (or via hotkey):
 
 ```bash
-habla --start     # Begin recording
-habla --stop      # Stop and transcribe
 habla --toggle    # Toggle recording on/off
 habla --status    # Check if recording or idle
 ```
 
-### Example: Pipe to clipboard
+### Example: Stream to clipboard
 
 ```bash
-# macOS
-habla --toggle && sleep 3 && habla --toggle | pbcopy
+# macOS - collects all chunks, then paste
+habla --toggle | pbcopy
+# (press toggle again to stop, then Cmd+V to paste)
 
 # Linux (X11)
-habla --toggle && sleep 3 && habla --toggle | xclip -selection clipboard
+habla --toggle | xclip -selection clipboard
 ```
 
-### Example: Bind to a hotkey
+### Example: Real-time typing
 
-Bind `habla --toggle` to a key combination in your window manager or keyboard settings. Each press starts or stops recording, with the transcription printed when you stop.
+```bash
+# Type directly into active window as you speak
+habla --toggle | while IFS= read -r line; do
+    osascript -e "tell application \"System Events\" to keystroke \"$line \""
+done
+```
 
 ### Vibe Coding Setup (macOS)
 
@@ -133,11 +137,11 @@ launchctl load ~/Library/LaunchAgents/com.habla.daemon.plist
 Install [skhd](https://github.com/koekeishiya/skhd) and add to `~/.skhdrc`:
 
 ```bash
-# Toggle recording and paste transcription
-alt - space : habla --toggle | pbcopy && osascript -e 'tell application "System Events" to keystroke "v" using command down'
+# Toggle recording and type transcription in real-time
+alt - space : habla --toggle | while IFS= read -r line; do osascript -e "tell application \"System Events\" to keystroke \"$line \""; done
 ```
 
-This binds `Alt+Space` to toggle recording. When you stop, the transcription is copied to clipboard and pasted at your cursor.
+This binds `Alt+Space` to toggle recording. Text is typed directly into your active window as you speak. Press `Alt+Space` again to stop.
 
 ## Configuration
 
@@ -171,20 +175,19 @@ Models are automatically downloaded on first use.
 │                    (~/.habla.sock)     (transcription)  │
 └─────────────────────────────────────────────────────────┘
          ▲
-         │ start/stop/toggle/status
+         │ toggle/status
          │
 ┌────────┴────────┐
-│  habla --start  │
-│  habla --stop   │
 │  habla --toggle │
+│  habla --status │
 └─────────────────┘
 ```
 
 1. The daemon starts and loads the Whisper model
 2. It listens for commands on a Unix socket
-3. On `start`, it begins recording audio from your microphone
-4. On `stop`, it resamples the audio to 16kHz and transcribes it
-5. The transcription is printed to stdout
+3. On `toggle`, it begins recording and transcribing in chunks (~3 seconds)
+4. Each chunk is streamed to stdout as it's ready
+5. On the next `toggle`, it transcribes any remaining audio and stops
 
 ## Development
 
