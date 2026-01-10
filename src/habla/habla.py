@@ -13,6 +13,7 @@ WHISPER_SAMPLERATE = 16000
 MODEL = os.getenv("MODEL", "large-v3-turbo-q8_0")
 SOCKET_PATH = os.path.expanduser("~/.habla.sock")
 CHUNK_INTERVAL = int(os.getenv("CHUNK_INTERVAL", "3"))
+SILENCE_THRESHOLD = float(os.getenv("SILENCE_THRESHOLD", "0.01"))
 
 
 class Recorder:
@@ -41,6 +42,13 @@ class Recorder:
             return ""
 
         audio = audio.flatten()
+
+        # Skip transcription if audio is below silence threshold
+        if SILENCE_THRESHOLD > 0:
+            rms = np.sqrt(np.mean(audio ** 2))
+            if rms < SILENCE_THRESHOLD:
+                return ""
+
         if self.samplerate != WHISPER_SAMPLERATE:
             num_samples = int(len(audio) * WHISPER_SAMPLERATE / self.samplerate)
             audio = scipy.signal.resample(audio, num_samples)

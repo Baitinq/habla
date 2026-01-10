@@ -149,6 +149,7 @@ This binds `Alt+Space` to toggle recording. Text is typed directly into your act
 |---------------------|---------|-------------|
 | `MODEL` | `large-v3-turbo-q8_0` | Whisper model to use |
 | `CHUNK_INTERVAL` | `3` | Seconds between streaming transcriptions (use large value for batch mode) |
+| `SILENCE_THRESHOLD` | `0.01` | Audio RMS threshold for voice detection (set to `0` to disable) |
 
 ### Available models
 
