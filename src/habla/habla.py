@@ -122,7 +122,7 @@ def daemon():
         if recorder.recording:
             text = recorder.stop()
             if text:
-                print(text, flush=True)
+                print(text, end="", flush=True)
     finally:
         server.close()
         if os.path.exists(SOCKET_PATH):
@@ -142,11 +142,11 @@ def main():
     elif args.stop:
         text = send_command("stop")
         if text:
-            print(text, flush=True)
+            print(text, end="", flush=True)
     elif args.toggle:
         text = send_command("toggle")
         if text:
-            print(text, flush=True)
+            print(text, end="", flush=True)
     elif args.status:
         print(send_command("status"))
     else:
