@@ -1,5 +1,5 @@
 {
-  description = "habla - Voice-to-text daemon powered by Whisper";
+  description = "habla - Voice-to-text daemon powered by Parakeet";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

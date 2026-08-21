@@ -1,15 +1,16 @@
 [project]
 name = "habla"
-version = "0.1.0"
-description = "Voice-to-text daemon powered by Whisper"
+version = "0.2.0"
+description = "Voice-to-text daemon powered by Parakeet"
 readme = "README.md"
 authors = [{ name = "Baitinq", email = "manuelpalenzuelamerino@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "numpy>=2.0",
-    "scipy>=1.14",
+    "sherpa-onnx==1.13.6+cuda12.cudnn9.onnxruntime1.27.1; sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sherpa-onnx==1.13.6; sys_platform != 'linux' or platform_machine != 'x86_64'",
+    "sherpa-onnx-core==1.13.6; sys_platform != 'linux' or platform_machine != 'x86_64'",
     "sounddevice>=0.5",
-    "pywhispercpp",
 ]
 
 [project.scripts]
@@ -19,5 +20,5 @@ habla = "habla.habla:main"
 requires = ["uv_build>=0.8.4,<0.9.0"]
 build-backend = "uv_build"
 
-[tool.uv.sources.pywhispercpp]
-git = "https://github.com/absadiki/pywhispercpp"
+[tool.uv]
+find-links = ["https://k2-fsa.github.io/sherpa/onnx/cuda.html"]

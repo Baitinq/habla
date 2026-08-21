@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+uv tool install --reinstall "$root"
+
+printf 'Installed habla in %s/.local/bin\n' "$HOME"
+printf 'The English Parakeet model downloads automatically on first start.\n'

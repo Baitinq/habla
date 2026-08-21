@@ -5,104 +5,82 @@
 <h1 align="center">habla</h1>
 
 <p align="center">
-  <strong>Voice-to-text daemon powered by Whisper</strong>
+  <strong>Fast, private, cross-platform voice-to-text</strong>
 </p>
 
-<p align="center">
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#vibe-coding-setup-macos">Vibe Coding Setup</a> •
-  <a href="#configuration">Configuration</a> •
-  <a href="#how-it-works">How It Works</a>
-</p>
-
-<p align="center">
-  <img src="https://img.shields.io/badge/python-3.12+-3776ab?logo=python&logoColor=white" alt="Python 3.12+">
-  <img src="https://img.shields.io/badge/whisper-large--v3--turbo-6366f1" alt="Whisper">
-</p>
-
----
-
-**habla** (Spanish for *"speak"*) is a lightweight voice-to-text daemon that transcribes speech in real-time using OpenAI's Whisper model via [whisper.cpp](https://github.com/ggerganov/whisper.cpp). It runs as a background service and outputs transcriptions to stdout, making it easy to pipe into other tools and workflows.
+**habla** is a local voice-to-text daemon powered by NVIDIA Parakeet TDT 0.6B v2, sherpa-onnx, and Silero VAD. It
+runs the same English INT8 ONNX model on macOS and Linux, segments speech at natural pauses, and writes finalized
+transcriptions to stdout for hotkeys and scripts.
 
 ## Features
 
-- **Daemon Architecture** — Runs in the background, controlled via simple commands
-- **Streaming Transcription** — Text streams to stdout as you speak
-- **Whisper-powered** — Uses state-of-the-art speech recognition
-- **Unix-friendly** — Outputs to stdout for easy piping and scripting
-- **Toggle Support** — Perfect for binding to a hotkey
-- **CUDA Acceleration** — Optional GPU support for faster transcription
+- Fully local after the first model download
+- English-only Parakeet TDT 0.6B v2
+- Punctuation and capitalization
+- The same ONNX implementation on macOS and Linux
+- Silero voice activity detection and 500 ms endpointing
+- Forced segmentation after 15 seconds, bounding stop latency and memory use
+- Background daemon controlled through a Unix socket
+
+## Requirements
+
+- macOS or Linux on ARM64 or x86-64
+- Python 3.12+
+- [uv](https://docs.astral.sh/uv/)
+- A microphone and PortAudio
+
+Install PortAudio if it is not already available:
+
+```bash
+brew install portaudio                # macOS
+sudo apt install libportaudio2        # Debian/Ubuntu
+```
 
 ## Installation
 
-### Prerequisites
-
-- [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager
-- Python 3.12+
-- A microphone
-
-**Linux users:** Add yourself to the `input` group for microphone access:
 ```bash
-sudo usermod -aG input $USER
+git clone https://github.com/baitinq/habla
+cd habla
+./scripts/install
 ```
 
-### Install with CUDA (NVIDIA GPUs)
-
-```bash
-uv tool install --reinstall -Caccel=cuda git+https://github.com/baitinq/habla
-```
-
-### Install CPU-only
-
-```bash
-uv tool install --reinstall git+https://github.com/baitinq/habla
-```
+The English Parakeet INT8 model (~634 MB) and Silero VAD model download on first start and are cached under
+`~/.cache/habla`.
 
 ## Usage
 
-### Start the daemon
+Start the daemon:
 
 ```bash
 habla
 ```
 
-The daemon loads the Whisper model and listens for commands on `~/.habla.sock`.
-
-### Control recording
-
-From another terminal (or via hotkey):
+From another terminal:
 
 ```bash
-habla --toggle    # Toggle recording on/off
-habla --status    # Check if recording or idle
+habla --toggle    # Start recording; run again to stop
+habla --status    # Print recording or idle
 ```
 
-### Example: Stream to clipboard
+The first `habla --toggle` process stays open. Each finalized utterance is printed after 500 ms of silence. Stopping
+recording finalizes the current utterance immediately and closes the process.
+
+### Stream to the clipboard
 
 ```bash
-# macOS - collects all chunks, then paste
 habla --toggle | pbcopy
-# (press toggle again to stop, then Cmd+V to paste)
-
-# Linux (X11)
-habla --toggle | xclip -selection clipboard
+# Speak, then run `habla --toggle` again.
 ```
 
-### Example: Real-time typing
+### Type into the active application on macOS
 
 ```bash
-# Type directly into active window as you speak
 habla --toggle | while IFS= read -r line; do
     osascript -e "tell application \"System Events\" to keystroke \"$line \""
 done
 ```
 
-### Vibe Coding Setup (macOS)
-
-For a seamless voice-to-text workflow while coding, you can set up habla to start automatically and bind it to a hotkey that pastes transcriptions directly.
-
-#### 1. Auto-start the daemon with launchd
+## Start automatically on macOS
 
 Create `~/Library/LaunchAgents/com.habla.daemon.plist`:
 
@@ -128,87 +106,58 @@ Create `~/Library/LaunchAgents/com.habla.daemon.plist`:
 ```
 
 Then load it:
+
 ```bash
 launchctl load ~/Library/LaunchAgents/com.habla.daemon.plist
 ```
 
-#### 2. Hotkey with skhd
+## Start automatically on Linux
 
-Install [skhd](https://github.com/koekeishiya/skhd) and add to `~/.skhdrc`:
+Create `~/.config/systemd/user/habla.service`:
 
-```bash
-# Toggle recording and type transcription in real-time
-alt - space : habla --toggle | while IFS= read -r line; do osascript -e "tell application \"System Events\" to keystroke \"$line \""; done
+```ini
+[Unit]
+Description=Habla voice-to-text daemon
+
+[Service]
+ExecStart=%h/.local/bin/habla
+Restart=always
+
+[Install]
+WantedBy=default.target
 ```
 
-This binds `Alt+Space` to toggle recording. Text is typed directly into your active window as you speak. Press `Alt+Space` again to stop.
+Enable it:
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now habla
+```
 
 ## Configuration
 
-| Environment Variable | Default | Description |
-|---------------------|---------|-------------|
-| `MODEL` | `large-v3-turbo-q8_0` | Whisper model to use |
-| `CHUNK_INTERVAL` | `3` | Seconds between streaming transcriptions (use large value for batch mode) |
-| `SILENCE_THRESHOLD` | `0.01` | Audio RMS threshold for voice detection (set to `0` to disable) |
+| Environment variable | Default | Description |
+|---|---|---|
+| `HABLA_MODEL_DIR` | `~/.cache/habla` | Model cache directory |
+| `HABLA_ONNX_PROVIDER` | automatic | `cuda` on Linux x86-64 with NVIDIA; `cpu` otherwise |
+| `HABLA_ONNX_THREADS` | `4` | ONNX inference threads |
 
-### Available models
+On Linux x86-64, installation uses sherpa-onnx's CUDA 12.8 + cuDNN 9 wheel. Habla selects its CUDA provider when
+`nvidia-smi` is available and otherwise uses the bundled CPU provider. macOS and Linux ARM64 use the CPU wheel.
 
-```bash
-MODEL=tiny.en habla      # Fastest, English-only
-MODEL=base.en habla      # Fast, English-only
-MODEL=small habla        # Balanced
-MODEL=large-v3-turbo-q8_0 habla  # Best quality (default)
-```
+## Architecture
 
-Models are automatically downloaded on first use.
+The daemon captures 16 kHz Float32 microphone audio and feeds it through Silero VAD in 32 ms windows. After 500 ms of
+silence, the completed speech segment is decoded once with the English Parakeet INT8 model and written to the active
+`habla --toggle` client. Continuous speech is force-segmented every 15 seconds, so stopping never waits on an unbounded
+audio buffer.
 
-## How It Works
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                      habla daemon                       │
-│                                                         │
-│  ┌─────────────┐    ┌─────────────┐    ┌────────────┐  │
-│  │  Microphone │───▶│   Recorder  │───▶│   Whisper  │  │
-│  └─────────────┘    └─────────────┘    └────────────┘  │
-│                            │                  │         │
-│                            ▼                  ▼         │
-│                     Unix Socket          stdout        │
-│                    (~/.habla.sock)     (transcription)  │
-└─────────────────────────────────────────────────────────┘
-         ▲
-         │ toggle/status
-         │
-┌────────┴────────┐
-│  habla --toggle │
-│  habla --status │
-└─────────────────┘
-```
-
-1. The daemon starts and loads the Whisper model
-2. It listens for commands on a Unix socket
-3. On `toggle`, it begins recording and transcribing in chunks (~3 seconds)
-4. Each chunk is streamed to stdout as it's ready
-5. On the next `toggle`, it transcribes any remaining audio and stops
+Finalized utterances are used instead of unstable partial hypotheses because keyboard injection cannot safely revise text
+that has already been typed into another application.
 
 ## Development
 
 ```bash
-# Clone the repo
-git clone https://github.com/baitinq/habla
-cd habla
-
-# Using Nix (recommended)
-nix develop
 uv sync
-
-# Or manually with uv
-uv sync
+uv run habla
 ```
-
-## Dependencies
-
-- [numpy](https://numpy.org/) — Audio data handling
-- [scipy](https://scipy.org/) — Audio resampling
-- [sounddevice](https://python-sounddevice.readthedocs.io/) — Microphone access
-- [pywhispercpp](https://github.com/absadiki/pywhispercpp) — Whisper.cpp Python bindings
