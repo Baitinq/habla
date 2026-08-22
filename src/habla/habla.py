@@ -8,6 +8,7 @@ import socket
 import sys
 import tarfile
 import threading
+import time
 import urllib.request
 
 import numpy as np
@@ -17,6 +18,7 @@ import sounddevice as sd
 ASR_SAMPLERATE = 16000
 SOCKET_PATH = os.path.expanduser("~/.habla.sock")
 STREAM_INTERVAL = 0.1
+UNLOAD_AFTER = float(os.getenv("HABLA_UNLOAD_AFTER", "300"))
 MODEL_NAME = "sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8"
 MODEL_URL = (
     "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/"
@@ -141,7 +143,8 @@ class Recorder:
         self.streaming_conn = None
         self.transcribe_thread = None
         self.stop_event = threading.Event()
-        self.asr = Parakeet()
+        self.asr = None
+        self.idle_since = time.monotonic()
 
         sd.check_input_settings(
             device=sd.default.device[0],
@@ -171,24 +174,31 @@ class Recorder:
         except (BrokenPipeError, OSError):
             pass
 
+    def _load_asr(self):
+        if self.asr is None:
+            self.asr = Parakeet()
+        return self.asr
+
     def _transcription_loop(self):
+        asr = self._load_asr()
+        asr.start()
+
         while not self.stop_event.wait(timeout=STREAM_INTERVAL):
             audio = self._take_audio()
             if audio is not None:
-                self.asr.accept_audio(audio)
-            for transcript in self.asr.finalized_segments():
+                asr.accept_audio(audio)
+            for transcript in asr.finalized_segments():
                 self._send_text(transcript)
 
         audio = self._take_audio()
         if audio is not None:
-            self.asr.accept_audio(audio)
-        for transcript in self.asr.finish():
+            asr.accept_audio(audio)
+        for transcript in asr.finish():
             self._send_text(transcript)
 
     def start(self, streaming_conn=None):
         if self.recording:
             return
-        self.asr.start()
         self.recording = True
         with self.audio_lock:
             self.audio_data = []
@@ -225,6 +235,17 @@ class Recorder:
         if self.streaming_conn:
             self.streaming_conn.close()
             self.streaming_conn = None
+        self.idle_since = time.monotonic()
+
+    def unload_if_idle(self):
+        if (
+            self.asr is not None
+            and not self.recording
+            and UNLOAD_AFTER > 0
+            and time.monotonic() - self.idle_since >= UNLOAD_AFTER
+        ):
+            print("Unloading Parakeet model after idle timeout", file=sys.stderr)
+            os.execv(sys.executable, [sys.executable, *sys.argv])
 
     def close(self):
         if self.recording:
@@ -258,12 +279,17 @@ def daemon():
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(SOCKET_PATH)
     server.listen(1)
+    server.settimeout(1)
 
     print(f"Listening on {SOCKET_PATH}", file=sys.stderr)
 
     try:
         while True:
-            conn, _ = server.accept()
+            try:
+                conn, _ = server.accept()
+            except socket.timeout:
+                recorder.unload_if_idle()
+                continue
             cmd = conn.recv(1024).decode().strip()
 
             if cmd == "toggle":

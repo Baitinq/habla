@@ -19,6 +19,7 @@ transcriptions to stdout for hotkeys and scripts.
 - Punctuation and capitalization
 - The same ONNX implementation on macOS and Linux
 - Silero voice activity detection with its standard endpointing defaults
+- Lazy model loading and automatic unload after five idle minutes
 - Background daemon controlled through a Unix socket
 
 ## Requirements
@@ -141,6 +142,7 @@ systemctl --user enable --now habla
 | `HABLA_MODEL_DIR` | `~/.cache/habla` | Model cache directory |
 | `HABLA_ONNX_PROVIDER` | automatic | `cuda` on Linux x86-64 with NVIDIA; `cpu` otherwise |
 | `HABLA_ONNX_THREADS` | `4` | ONNX inference threads |
+| `HABLA_UNLOAD_AFTER` | `300` | Idle seconds before unloading the model; `0` disables unloading |
 
 On Linux x86-64, installation uses sherpa-onnx's CUDA 12.8 + cuDNN 9 wheel. Habla selects its CUDA provider when
 `nvidia-smi` is available and otherwise uses the bundled CPU provider. macOS and Linux ARM64 use the CPU wheel.
@@ -149,7 +151,9 @@ On Linux x86-64, installation uses sherpa-onnx's CUDA 12.8 + cuDNN 9 wheel. Habl
 
 The daemon captures 16 kHz Float32 microphone audio and feeds it through Silero VAD in 32 ms windows. After Silero's
 default 500 ms silence endpoint, the completed speech segment is decoded once with the English Parakeet INT8 model and
-written to the active `habla --toggle` client. Stopping capture flushes the current speech segment.
+written to the active `habla --toggle` client. Stopping capture flushes the current speech segment. The microphone starts
+before a cold model load, so audio spoken during loading is retained. After five idle minutes, the model is released and
+loaded again on the next recording.
 
 Finalized utterances are used instead of unstable partial hypotheses because keyboard injection cannot safely revise text
 that has already been typed into another application.
