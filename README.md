@@ -18,8 +18,7 @@ transcriptions to stdout for hotkeys and scripts.
 - English-only Parakeet TDT 0.6B v2
 - Punctuation and capitalization
 - The same ONNX implementation on macOS and Linux
-- Silero voice activity detection and 250 ms endpointing
-- Forced segmentation after 5 seconds, bounding streaming latency, stop latency, and memory use
+- Silero voice activity detection with its standard endpointing defaults
 - Background daemon controlled through a Unix socket
 
 ## Requirements
@@ -62,8 +61,8 @@ habla --toggle    # Start recording; run again to stop
 habla --status    # Print recording or idle
 ```
 
-The first `habla --toggle` process stays open. Each finalized utterance is printed after 250 ms of silence or five
-seconds of continuous speech. Stopping
+The first `habla --toggle` process stays open. Each finalized utterance is printed after Silero detects its standard
+500 ms silence endpoint. Stopping
 recording finalizes the current utterance immediately and closes the process.
 
 ### Stream to the clipboard
@@ -148,10 +147,9 @@ On Linux x86-64, installation uses sherpa-onnx's CUDA 12.8 + cuDNN 9 wheel. Habl
 
 ## Architecture
 
-The daemon captures 16 kHz Float32 microphone audio and feeds it through Silero VAD in 32 ms windows. After 250 ms of
-silence, the completed speech segment is decoded once with the English Parakeet INT8 model and written to the active
-`habla --toggle` client. Continuous speech is force-segmented every five seconds, so output remains live and stopping
-never waits on an unbounded audio buffer.
+The daemon captures 16 kHz Float32 microphone audio and feeds it through Silero VAD in 32 ms windows. After Silero's
+default 500 ms silence endpoint, the completed speech segment is decoded once with the English Parakeet INT8 model and
+written to the active `habla --toggle` client. Stopping capture flushes the current speech segment.
 
 Finalized utterances are used instead of unstable partial hypotheses because keyboard injection cannot safely revise text
 that has already been typed into another application.

@@ -83,9 +83,6 @@ class Parakeet:
 
         self.vad_config = sherpa_onnx.VadModelConfig()
         self.vad_config.silero_vad.model = str(vad_path)
-        self.vad_config.silero_vad.min_silence_duration = 0.25
-        self.vad_config.silero_vad.min_speech_duration = 0.15
-        self.vad_config.silero_vad.max_speech_duration = 5
         self.vad_config.sample_rate = ASR_SAMPLERATE
         self.vad = self._new_vad()
         self.pending_audio = np.empty(0, dtype=np.float32)
@@ -116,14 +113,6 @@ class Parakeet:
         stream.accept_waveform(ASR_SAMPLERATE, audio)
         self.recognizer.decode_stream(stream)
         return stream.result.text.strip()
-
-    def forced_segment(self):
-        samples = self.vad.current_segment.samples
-        if len(samples) < 5 * ASR_SAMPLERATE:
-            return ""
-        transcript = self.transcribe(np.asarray(samples, dtype=np.float32))
-        self.vad.reset()
-        return transcript
 
     def finalized_segments(self):
         while not self.vad.empty():
@@ -187,7 +176,6 @@ class Recorder:
             audio = self._take_audio()
             if audio is not None:
                 self.asr.accept_audio(audio)
-            self._send_text(self.asr.forced_segment())
             for transcript in self.asr.finalized_segments():
                 self._send_text(transcript)
 
