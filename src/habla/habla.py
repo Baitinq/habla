@@ -58,8 +58,7 @@ def download_models():
 
 
 class Parakeet:
-    def __init__(self):
-        model_dir, vad_path = download_models()
+    def __init__(self, model_dir, vad_path):
         default_provider = (
             "cuda"
             if platform.system() == "Linux"
@@ -135,7 +134,7 @@ class Parakeet:
 
 
 class Recorder:
-    def __init__(self):
+    def __init__(self, model_dir, vad_path):
         self.recording = False
         self.audio_data = []
         self.audio_lock = threading.Lock()
@@ -144,6 +143,8 @@ class Recorder:
         self.transcribe_thread = None
         self.stop_event = threading.Event()
         self.asr = None
+        self.model_dir = model_dir
+        self.vad_path = vad_path
         self.idle_since = time.monotonic()
 
         sd.check_input_settings(
@@ -176,7 +177,7 @@ class Recorder:
 
     def _load_asr(self):
         if self.asr is None:
-            self.asr = Parakeet()
+            self.asr = Parakeet(self.model_dir, self.vad_path)
         return self.asr
 
     def _transcription_loop(self):
@@ -271,7 +272,8 @@ def send_command(cmd):
 
 
 def daemon():
-    recorder = Recorder()
+    model_dir, vad_path = download_models()
+    recorder = Recorder(model_dir, vad_path)
 
     if os.path.exists(SOCKET_PATH):
         os.remove(SOCKET_PATH)
