@@ -38,11 +38,27 @@ sudo apt install libportaudio2        # Debian/Ubuntu
 
 ## Installation
 
+With Nix flakes:
+
+```bash
+nix profile install github:baitinq/habla
+```
+
+Or install from source:
+
 ```bash
 git clone https://github.com/baitinq/habla
 cd habla
 ./scripts/install
 ```
+
+You can also run Habla without installing it:
+
+```bash
+nix run github:baitinq/habla
+```
+
+The Nix package uses sherpa-onnx's portable CPU runtime. Set `HABLA_ONNX_PROVIDER` explicitly if you provide a different runtime.
 
 The English Parakeet INT8 model (~634 MB) and Silero VAD model download on first start and are cached under
 `~/.cache/habla`.
