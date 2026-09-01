@@ -200,20 +200,26 @@ class Recorder:
     def start(self, streaming_conn=None):
         if self.recording:
             return
-        self.recording = True
         with self.audio_lock:
             self.audio_data = []
-        self.streaming_conn = streaming_conn
-        self.stop_event.clear()
 
         print("Recording...", file=sys.stderr)
-        self.stream = sd.InputStream(
+        stream = sd.InputStream(
             samplerate=ASR_SAMPLERATE,
             channels=1,
             dtype="float32",
             callback=self._callback,
         )
-        self.stream.start()
+        try:
+            stream.start()
+        except Exception:
+            stream.close()
+            raise
+
+        self.stream = stream
+        self.streaming_conn = streaming_conn
+        self.stop_event.clear()
+        self.recording = True
 
         if streaming_conn:
             self.transcribe_thread = threading.Thread(target=self._transcription_loop, daemon=True)
@@ -299,7 +305,11 @@ def daemon():
                     recorder.stop()
                     conn.close()
                 else:
-                    recorder.start(streaming_conn=conn)
+                    try:
+                        recorder.start(streaming_conn=conn)
+                    except sd.PortAudioError as error:
+                        print(f"Unable to start recording: {error}", file=sys.stderr)
+                        conn.close()
             elif cmd == "status":
                 status = "recording" if recorder.recording else "idle"
                 conn.sendall((status + "\n").encode())
